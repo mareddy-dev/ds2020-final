@@ -1,0 +1,233 @@
+---
+title: "Gen AI Misinformation Detection - Basic Analysis"
+author: "Mahathi, Maya, Nayan"
+date: "Nov. 3, 2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 1. Load Data and Libraries
+
+```{r load}
+library(ggplot2)
+library(dplyr)
+
+# Load the dataset
+df <- read.csv('generative_ai_misinformation_dataset.csv')
+
+# Show first few rows
+head(df)
+```
+
+**What we have:** This dataset contains 500 social media posts from Twitter, Facebook, Reddit, and Telegram. Each post has been labeled as either misinformation or legitimate content.
+
+---
+
+# 2. Dataset Description
+
+```{r description}
+# Basic information
+cat("Number of rows:", nrow(df), "\n")
+cat("Number of columns:", ncol(df), "\n")
+cat("Missing values:", sum(is.na(df)), "\n")
+```
+
+**Key features in the dataset:**
+
+- **Post information:** platform, text content, timestamp, location
+- **Content metrics:** text length, readability score, sentiment, toxicity
+- **AI detection:** model signature (GPT-like, human, unknown), synthetic score
+- **Author info:** follower count, verification status
+- **Target variable:** is_misinformation (0 = legitimate, 1 = misinformation)
+
+---
+
+# 3. Data Cleaning
+
+```{r cleaning}
+# Convert date column
+df$date <- as.Date(df$date)
+
+# Convert categorical variables to factors
+df$platform <- as.factor(df$platform)
+df$is_misinformation <- factor(df$is_misinformation, 
+                                levels = c(0, 1), 
+                                labels = c("Legitimate", "Misinformation"))
+```
+
+**Cleaning steps:**
+- Converted dates to proper format
+- Changed categorical variables to factors for easier analysis
+- No missing values found - dataset is complete!
+
+---
+
+# 4. Marginal Summaries
+
+## 4.1 How much misinformation is there?
+
+```{r misinformation}
+# Count misinformation vs legitimate
+table(df$is_misinformation)
+
+# Make a bar plot
+ggplot(df, aes(x = is_misinformation, fill = is_misinformation)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5) +
+  scale_fill_manual(values = c("Legitimate" = "green", "Misinformation" = "red")) +
+  labs(title = "Misinformation vs Legitimate Posts", 
+       x = "Type", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+**Finding:** Out of 500 posts, 259 (51.8%) are misinformation and 241 (48.2%) are legitimate. This is a fairly balanced dataset, which is good for building predictive models.
+
+---
+
+## 4.2 Which platforms have the most posts?
+
+```{r platforms}
+# Count by platform
+table(df$platform)
+
+# Bar plot
+ggplot(df, aes(x = platform, fill = platform)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5) +
+  labs(title = "Posts by Platform", x = "Platform", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+**Finding:** Posts are fairly evenly distributed across all four platforms. Facebook has slightly more posts (143), while the others have around 117-122 posts each. This means our dataset isn't biased toward any single platform.
+
+---
+
+## 4.3 Which countries are represented?
+
+```{r countries}
+# Count by country
+table(df$country)
+
+# Bar plot
+ggplot(df, aes(x = country, fill = country)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5) +
+  labs(title = "Posts by Country", x = "Country", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+**Finding:** The dataset covers 5 countries with relatively equal representation (~95-108 posts each). This geographic diversity means our findings can potentially apply across different regions.
+
+---
+
+## 4.4 How much content is AI-generated?
+
+```{r model_signature}
+# Count by model signature
+table(df$model_signature)
+
+# Bar plot
+ggplot(df, aes(x = model_signature, fill = model_signature)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5) +
+  labs(title = "AI Detection: Model Signatures", 
+       x = "Model Signature", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+**Finding:** About one-third of posts (168) are detected as "GPT-like" (AI-generated), one-third are human-written (166), and one-third are unknown (166). This suggests AI-generated content is a significant presence in social media.
+
+---
+
+## 4.5 Summary Statistics for Key Numbers
+
+```{r summary_stats}
+# Select important numerical variables
+summary_vars <- df %>% 
+  select(text_length, sentiment_score, toxicity_score, 
+         detected_synthetic_score, engagement)
+
+# Get summary statistics
+summary(summary_vars)
+```
+
+**What these numbers mean:**
+
+- **Text length:** Posts average 150 characters (range: 20-280). Most posts are relatively short.
+- **Sentiment score:** Ranges from -1 (very negative) to 1 (very positive). Average is near 0, meaning posts are generally neutral.
+- **Toxicity score:** Ranges from 0 (not toxic) to 1 (very toxic). Average is 0.49, suggesting moderate toxicity overall.
+- **Synthetic score:** Higher scores mean more likely to be AI-generated. Wide range suggests varying confidence in detection.
+- **Engagement:** Highly variable (4 to 9,977), meaning some posts go viral while others get little attention.
+
+---
+
+## 4.6 Do misinformation posts have different characteristics?
+
+```{r comparison}
+# Compare toxicity between legitimate and misinformation
+ggplot(df, aes(x = is_misinformation, y = toxicity_score, fill = is_misinformation)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Legitimate" = "green", "Misinformation" = "red")) +
+  labs(title = "Toxicity: Misinformation vs Legitimate Posts",
+       x = "Type", y = "Toxicity Score") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Compare synthetic scores
+ggplot(df, aes(x = is_misinformation, y = detected_synthetic_score, fill = is_misinformation)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Legitimate" = "green", "Misinformation" = "red")) +
+  labs(title = "AI Detection Scores: Misinformation vs Legitimate",
+       x = "Type", y = "Synthetic Detection Score") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+**Findings from the boxplots:**
+
+- **Toxicity:** Both types of posts show similar toxicity levels, though there may be slight differences in the spread. This suggests toxicity alone isn't a strong indicator of misinformation.
+
+- **AI Detection:** The boxplots show whether misinformation posts are more likely to be AI-generated. If misinformation has higher synthetic scores, this would be a useful signal for detection.
+
+---
+
+# 5. Key Takeaways
+
+**What we learned from this analysis:**
+
+1. **Balanced dataset:** We have nearly equal amounts of misinformation and legitimate content (52% vs 48%), which is ideal for building classification models.
+
+2. **Diverse data:** Posts come from 4 different platforms and 5 different countries, making our dataset representative of real-world social media.
+
+3. **AI presence:** One-third of posts are detected as AI-generated (GPT-like), highlighting the growing role of AI in content creation and misinformation.
+
+4. **Variable characteristics:** Posts vary widely in length, engagement, and toxicity, showing the complexity of social media content.
+
+5. **Multiple signals available:** We have many different features (content, author, engagement, AI detection) that could help identify misinformation.
+
+**Next steps for analysis:**
+- Build predictive models to classify misinformation
+- Investigate which features are most important for detection
+- Analyze temporal trends to see if misinformation patterns change over time
+- Examine platform-specific differences in misinformation
+
+---
+
+# 6. Data Quality Check
+
+```{r quality_check}
+cat("Data Quality Summary:\n")
+cat("- Total records:", nrow(df), "\n")
+cat("- Missing values:", sum(is.na(df)), "\n")
+cat("- Duplicate post IDs:", sum(duplicated(df$post_id)), "\n")
+cat("- Date range:", min(df$date), "to", max(df$date), "\n")
+```
+
+**Quality notes:** The dataset is clean with no missing values or duplicates. All 500 records are complete and ready for modeling.
