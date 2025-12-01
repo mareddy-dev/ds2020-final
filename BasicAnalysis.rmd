@@ -231,3 +231,26 @@ cat("- Date range:", min(df$date), "to", max(df$date), "\n")
 ```
 
 **Quality notes:** The dataset is clean with no missing values or duplicates. All 500 records are complete and ready for modeling.
+
+
+## **_Research Questions for Further Analysis_**
+
+# 1. Which social media platform is most prone to AI-generated content?
+
+# 2. How long are posts that are typically flagged as AI-generated?
+
+# 3. What are the most common words used in AI-generated posts?
+
+# 4. Are misinformation posts more likely to come from AI-generated content compared to legitimate posts?
+
+# 5. Do misinformation posts show higher toxicity levels than legitimate posts?
+
+# 6. Which country contributes the most misinformation content, and how does that compare to legitimate content?
+
+# 7. How does engagement (likes, shares, interactions) differ between misinformation and legitimate posts?
+
+# 8. Are certain sentiment trends (negative, neutral, positive) more common in misinformation posts?
+
+# 9. Do verified users spread misinformation at a higher or lower rate than unverified users?
+
+# 10. Does AI-generated content receive different sentiment scores compared to human-written posts?
