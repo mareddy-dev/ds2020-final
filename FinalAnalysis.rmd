@@ -1,0 +1,422 @@
+---
+title: "Research Questions Analysis: Q5, Q7, Q9"
+author: "Mahathi, Maya, Nayan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 6)
+```
+
+# Introduction
+
+This document analyzes three key research questions from our misinformation dataset:
+
+- **Q5:** Do misinformation posts show higher toxicity levels than legitimate posts?
+- **Q7:** How does engagement differ between misinformation and legitimate posts?
+- **Q9:** Do verified users spread misinformation at a higher or lower rate than unverified users?
+
+---
+
+# Load Libraries and Data
+
+```{r load}
+library(ggplot2)
+library(dplyr)
+library(knitr)
+
+# Load the dataset
+df <- read.csv('generative_ai_misinformation_dataset.csv')
+
+# Convert is_misinformation to factor for better labeling
+df$is_misinformation <- factor(df$is_misinformation, 
+                                levels = c(0, 1), 
+                                labels = c("Legitimate", "Misinformation"))
+
+cat("Dataset loaded successfully!")
+cat("\nTotal posts:", nrow(df))
+cat("\nLegitimate:", sum(df$is_misinformation == "Legitimate"))
+cat("\nMisinformation:", sum(df$is_misinformation == "Misinformation"))
+```
+
+---
+
+# Research Question 5: Toxicity Levels
+
+**Question:** Do misinformation posts show higher toxicity levels than legitimate posts?
+
+## Summary Statistics
+
+```{r q5_summary}
+# Calculate summary statistics for toxicity by type
+toxicity_summary <- df %>%
+  group_by(is_misinformation) %>%
+  summarise(
+    Mean = mean(toxicity_score),
+    Median = median(toxicity_score),
+    SD = sd(toxicity_score),
+    Min = min(toxicity_score),
+    Max = max(toxicity_score),
+    Count = n()
+  )
+
+kable(toxicity_summary, digits = 3, caption = "Toxicity Score Statistics by Post Type")
+```
+
+**Interpretation:** The table above shows the descriptive statistics for toxicity scores. Toxicity scores range from 0 (not toxic) to 1 (very toxic).
+
+## Statistical Test
+
+```{r q5_test}
+# Perform t-test
+t_test_toxicity <- t.test(toxicity_score ~ is_misinformation, data = df)
+
+# Display results
+cat("Independent Samples T-Test\n")
+cat("==========================\n")
+cat("T-statistic:", round(t_test_toxicity$statistic, 4), "\n")
+cat("P-value:", format.pval(t_test_toxicity$p.value, digits = 4), "\n")
+cat("95% Confidence Interval:", round(t_test_toxicity$conf.int[1], 4), 
+    "to", round(t_test_toxicity$conf.int[2], 4), "\n")
+cat("\nMean difference (Legitimate - Misinformation):", 
+    round(diff(t_test_toxicity$estimate), 4), "\n")
+
+if (t_test_toxicity$p.value < 0.05) {
+  cat("\n✓ Result: There IS a statistically significant difference in toxicity (p < 0.05)\n")
+} else {
+  cat("\n✗ Result: There is NO statistically significant difference in toxicity (p >= 0.05)\n")
+}
+```
+
+## Visualization
+
+```{r q5_viz, fig.height=7}
+# Create boxplot
+p1 <- ggplot(df, aes(x = is_misinformation, y = toxicity_score, 
+                     fill = is_misinformation)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = 1) +
+  geom_jitter(alpha = 0.2, width = 0.2, size = 1) +
+  scale_fill_manual(values = c("Legitimate" = "#4CAF50", 
+                                "Misinformation" = "#F44336")) +
+  labs(title = "Toxicity Levels: Misinformation vs Legitimate Posts",
+       subtitle = paste0("Mean Toxicity: Legitimate = ", 
+                        round(toxicity_summary$Mean[1], 3),
+                        ", Misinformation = ", 
+                        round(toxicity_summary$Mean[2], 3)),
+       x = "Post Type",
+       y = "Toxicity Score (0-1)") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", size = 16),
+        plot.subtitle = element_text(size = 12))
+
+print(p1)
+```
+
+**Key Findings:**
+
+- Legitimate posts have a mean toxicity of **`r round(toxicity_summary$Mean[1], 3)`**
+- Misinformation posts have a mean toxicity of **`r round(toxicity_summary$Mean[2], 3)`**
+- The difference is **`r round(abs(toxicity_summary$Mean[2] - toxicity_summary$Mean[1]), 3)`**
+- Statistical significance: **`r ifelse(t_test_toxicity$p.value < 0.05, "YES", "NO")`** (p = `r round(t_test_toxicity$p.value, 4)`)
+
+---
+
+# Research Question 7: Engagement Differences
+
+**Question:** How does engagement (likes, shares, interactions) differ between misinformation and legitimate posts?
+
+## Summary Statistics
+
+```{r q7_summary}
+# Calculate engagement statistics
+engagement_summary <- df %>%
+  group_by(is_misinformation) %>%
+  summarise(
+    Mean = mean(engagement),
+    Median = median(engagement),
+    SD = sd(engagement),
+    Min = min(engagement),
+    Max = max(engagement),
+    Q1 = quantile(engagement, 0.25),
+    Q3 = quantile(engagement, 0.75),
+    Count = n()
+  )
+
+kable(engagement_summary, digits = 1, caption = "Engagement Statistics by Post Type", 
+      format.args = list(big.mark = ","))
+```
+
+**Interpretation:** Engagement metrics show the total interactions (likes, shares, comments) for each post. Note the wide range, indicating some posts go viral while others receive minimal attention.
+
+## Statistical Test
+
+```{r q7_test}
+# Perform Wilcoxon test (better for skewed distributions)
+wilcox_test_engagement <- wilcox.test(engagement ~ is_misinformation, data = df)
+
+# Also perform t-test for completeness
+t_test_engagement <- t.test(engagement ~ is_misinformation, data = df)
+
+cat("Wilcoxon Rank Sum Test (Non-parametric)\n")
+cat("========================================\n")
+cat("W-statistic:", wilcox_test_engagement$statistic, "\n")
+cat("P-value:", format.pval(wilcox_test_engagement$p.value, digits = 4), "\n")
+
+cat("\n\nIndependent Samples T-Test (Parametric)\n")
+cat("========================================\n")
+cat("T-statistic:", round(t_test_engagement$statistic, 4), "\n")
+cat("P-value:", format.pval(t_test_engagement$p.value, digits = 4), "\n")
+
+if (wilcox_test_engagement$p.value < 0.05) {
+  cat("\n✓ Result: There IS a statistically significant difference in engagement (p < 0.05)\n")
+} else {
+  cat("\n✗ Result: There is NO statistically significant difference in engagement (p >= 0.05)\n")
+}
+```
+
+## Visualizations
+
+```{r q7_viz1, fig.height=7}
+# Boxplot with jittered points
+p2 <- ggplot(df, aes(x = is_misinformation, y = engagement, 
+                     fill = is_misinformation)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(alpha = 0.3, width = 0.2, size = 1.5) +
+  scale_fill_manual(values = c("Legitimate" = "#4CAF50", 
+                                "Misinformation" = "#F44336")) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title = "Engagement Distribution: Misinformation vs Legitimate Posts",
+       subtitle = paste0("Median Engagement: Legitimate = ", 
+                        scales::comma(round(engagement_summary$Median[1], 0)),
+                        ", Misinformation = ", 
+                        scales::comma(round(engagement_summary$Median[2], 0))),
+       x = "Post Type",
+       y = "Engagement (likes, shares, interactions)") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", size = 16),
+        plot.subtitle = element_text(size = 12))
+
+print(p2)
+```
+
+```{r q7_viz2, fig.height=6}
+# Bar chart comparing means
+engagement_means <- df %>%
+  group_by(is_misinformation) %>%
+  summarise(Mean_Engagement = mean(engagement))
+
+p2b <- ggplot(engagement_means, aes(x = is_misinformation, y = Mean_Engagement, 
+                                    fill = is_misinformation)) +
+  geom_bar(stat = "identity", alpha = 0.8, width = 0.6) +
+  geom_text(aes(label = scales::comma(round(Mean_Engagement, 0))), 
+            vjust = -0.5, fontface = "bold", size = 5) +
+  scale_fill_manual(values = c("Legitimate" = "#4CAF50", 
+                                "Misinformation" = "#F44336")) +
+  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.1))) +
+  labs(title = "Average Engagement by Post Type",
+       x = "Post Type",
+       y = "Average Engagement") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", size = 16))
+
+print(p2b)
+```
+
+**Key Findings:**
+
+- Legitimate posts have a median engagement of **`r scales::comma(round(engagement_summary$Median[1], 0))`**
+- Misinformation posts have a median engagement of **`r scales::comma(round(engagement_summary$Median[2], 0))`**
+- The difference is **`r scales::comma(round(abs(engagement_summary$Median[2] - engagement_summary$Median[1]), 0))`**
+- Statistical significance: **`r ifelse(wilcox_test_engagement$p.value < 0.05, "YES", "NO")`** (p = `r round(wilcox_test_engagement$p.value, 4)`)
+
+---
+
+# Research Question 9: Verified Users and Misinformation
+
+**Question:** Do verified users spread misinformation at a higher or lower rate than unverified users?
+
+## Contingency Table
+
+```{r q9_table}
+# Create contingency table
+verification_table <- table(df$author_verified, df$is_misinformation)
+rownames(verification_table) <- c("Unverified (0)", "Verified (1)")
+
+kable(verification_table, caption = "Posts by Verification Status and Type")
+```
+
+## Misinformation Rates
+
+```{r q9_rates}
+# Calculate proportions
+verification_props <- df %>%
+  group_by(author_verified, is_misinformation) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(author_verified) %>%
+  mutate(Total = sum(Count),
+         Percentage = (Count / Total) * 100)
+
+# Extract misinformation rates
+misinfo_rates <- verification_props %>%
+  filter(is_misinformation == "Misinformation") %>%
+  mutate(Verified_Status = ifelse(author_verified == 1, "Verified", "Unverified")) %>%
+  select(Verified_Status, Count, Total, Percentage)
+
+kable(misinfo_rates, digits = 1, caption = "Misinformation Rate by Verification Status")
+```
+
+**Interpretation:** This table shows what percentage of posts from each user type (verified vs. unverified) are misinformation.
+
+## Statistical Test
+
+```{r q9_test}
+# Chi-square test
+chi_test <- chisq.test(verification_table)
+
+cat("Chi-Square Test of Independence\n")
+cat("================================\n")
+cat("Chi-square statistic:", round(chi_test$statistic, 4), "\n")
+cat("Degrees of freedom:", chi_test$parameter, "\n")
+cat("P-value:", format.pval(chi_test$p.value, digits = 4), "\n")
+
+# Calculate effect size (Cramér's V)
+cramers_v <- sqrt(chi_test$statistic / (nrow(df) * (min(dim(verification_table)) - 1)))
+cat("Effect size (Cramér's V):", round(cramers_v, 4), "\n")
+
+if (chi_test$p.value < 0.05) {
+  cat("\n✓ Result: There IS a statistically significant association between\n")
+  cat("  verification status and misinformation spread (p < 0.05)\n")
+} else {
+  cat("\n✗ Result: There is NO statistically significant association between\n")
+  cat("  verification status and misinformation spread (p >= 0.05)\n")
+}
+```
+
+## Visualizations
+
+```{r q9_viz1, fig.height=7}
+# Prepare data for visualization
+verification_viz <- df %>%
+  mutate(Verified = factor(author_verified, 
+                           levels = c(0, 1), 
+                           labels = c("Unverified", "Verified"))) %>%
+  group_by(Verified, is_misinformation) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  group_by(Verified) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100)
+
+# Percentage bar chart
+p3 <- ggplot(verification_viz, aes(x = Verified, y = Percentage, 
+                                   fill = is_misinformation)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.8, width = 0.7) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
+            position = position_dodge(width = 0.7), 
+            vjust = -0.5, fontface = "bold", size = 4) +
+  scale_fill_manual(values = c("Legitimate" = "#4CAF50", 
+                                "Misinformation" = "#F44336")) +
+  labs(title = "Misinformation Spread by User Verification Status",
+       subtitle = "Percentage of posts that are misinformation vs legitimate",
+       x = "User Verification Status",
+       y = "Percentage of Posts (%)",
+       fill = "Post Type") +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 16),
+        plot.subtitle = element_text(size = 12),
+        legend.position = "bottom",
+        legend.title = element_text(face = "bold"))
+
+print(p3)
+```
+
+```{r q9_viz2, fig.height=6}
+# Raw counts bar chart
+p3b <- ggplot(verification_viz, aes(x = Verified, y = Count, 
+                                    fill = is_misinformation)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.8, width = 0.7) +
+  geom_text(aes(label = Count), 
+            position = position_dodge(width = 0.7), 
+            vjust = -0.5, fontface = "bold", size = 4) +
+  scale_fill_manual(values = c("Legitimate" = "#4CAF50", 
+                                "Misinformation" = "#F44336")) +
+  labs(title = "Raw Counts: Posts by Verification Status and Type",
+       x = "User Verification Status",
+       y = "Number of Posts",
+       fill = "Post Type") +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 16),
+        legend.position = "bottom",
+        legend.title = element_text(face = "bold"))
+
+print(p3b)
+```
+
+**Key Findings:**
+
+```{r q9_findings, echo=FALSE}
+verified_misinfo_rate <- misinfo_rates$Percentage[misinfo_rates$Verified_Status == "Verified"]
+unverified_misinfo_rate <- misinfo_rates$Percentage[misinfo_rates$Verified_Status == "Unverified"]
+```
+
+- **Verified users:** `r round(verified_misinfo_rate, 1)`% of their posts are misinformation
+- **Unverified users:** `r round(unverified_misinfo_rate, 1)`% of their posts are misinformation
+- **Difference:** `r round(abs(verified_misinfo_rate - unverified_misinfo_rate), 1)` percentage points
+- **Statistical significance:** `r ifelse(chi_test$p.value < 0.05, "YES", "NO")` (p = `r round(chi_test$p.value, 4)`)
+
+---
+
+# Summary of All Findings
+
+```{r summary_table, echo=FALSE}
+# Create summary table
+summary_df <- data.frame(
+  Question = c("Q5: Toxicity", "Q7: Engagement", "Q9: Verification"),
+  Finding = c(
+    paste0("Misinformation has ", 
+           ifelse(toxicity_summary$Mean[2] > toxicity_summary$Mean[1], "higher", "lower"),
+           " toxicity (", round(toxicity_summary$Mean[2], 3), " vs ", 
+           round(toxicity_summary$Mean[1], 3), ")"),
+    paste0("Misinformation has ", 
+           ifelse(engagement_summary$Median[2] > engagement_summary$Median[1], "higher", "lower"),
+           " engagement (median: ", scales::comma(round(engagement_summary$Median[2], 0)), 
+           " vs ", scales::comma(round(engagement_summary$Median[1], 0)), ")"),
+    paste0("Verified users: ", round(verified_misinfo_rate, 1), 
+           "% misinfo, Unverified: ", round(unverified_misinfo_rate, 1), "% misinfo")
+  ),
+  Statistically_Significant = c(
+    ifelse(t_test_toxicity$p.value < 0.05, "Yes", "No"),
+    ifelse(wilcox_test_engagement$p.value < 0.05, "Yes", "No"),
+    ifelse(chi_test$p.value < 0.05, "Yes", "No")
+  ),
+  P_Value = c(
+    round(t_test_toxicity$p.value, 4),
+    round(wilcox_test_engagement$p.value, 4),
+    round(chi_test$p.value, 4)
+  )
+)
+
+kable(summary_df, caption = "Summary of Research Questions 5, 7, and 9")
+```
+
+## Implications
+
+Based on our analysis:
+
+1. **Toxicity (Q5):** `r ifelse(t_test_toxicity$p.value < 0.05, "Toxicity is significantly different between misinformation and legitimate posts, suggesting it could be a useful feature for detection models.", "Toxicity alone may not be a strong discriminator between misinformation and legitimate content.")`
+
+2. **Engagement (Q7):** `r ifelse(wilcox_test_engagement$p.value < 0.05, "Engagement patterns differ significantly, indicating that misinformation may spread differently than legitimate content on social media.", "Engagement levels are similar regardless of content veracity, suggesting misinformation spreads as widely as legitimate information.")`
+
+3. **Verification (Q9):** `r ifelse(chi_test$p.value < 0.05, "User verification status is significantly associated with misinformation spread, which has important implications for platform trust systems.", "Verification status does not significantly predict misinformation spread, suggesting verified badges alone may not prevent misinformation.")`
+
+---
+
+# Conclusion
+
+This analysis provides insights into the characteristics of misinformation on social media platforms. Understanding these patterns can help in developing better detection systems and informing platform policies.
+
+**Data Citation:** Generative AI Misinformation Detection Dataset (n = 500 posts)
+
+**Analysis Date:** `r Sys.Date()`
