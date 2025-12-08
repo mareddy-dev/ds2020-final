@@ -7,17 +7,17 @@ output: html_document
 
 # 1. Introduction
 
-The launch of ChatGPT in November 2022 marked a major shift in how people interact with technology, particularly through the ability to generate detailed text on virtually any topic within seconds. Alongside other generative AI tools such as Claude and Gemini, these systems allow users to produce content—ranging from opinions on politics and sports to music and culture — with minimal independent research. Increasingly, this AI-generated material finds its way onto social media platforms, often without users verifying its accuracy or even recognizing that it was created by an artificial system. In response, platforms such as X have begun flagging posts that may contain AI-generated content in an effort to help users distinguish between human-authored information and automated output.
+The launch of ChatGPT in November 2022 marked a major shift in how people interact with technology, particularly through the ability to generate detailed text on virtually any topic within seconds. Alongside other generative AI tools such as Claude and Gemini, these systems allow users to produce content—ranging from opinions on politics and sports to music and culture — with minimal independent research. Increasingly, this AI-generated material finds its way onto social media platforms, often without users verifying its accuracy or even recognizing that an artificial system created it. In response, platforms such as X have begun flagging posts that may contain AI-generated content in an effort to help users distinguish between human-authored information and automated output.
 
 The dangers of unchecked AI-generated media became especially clear in November 2025, when a deepfake video circulated on social media that altered a 2018 speech by U.S. politician DeAndrea Salvador to make it appear as though she was addressing low-income communities in São Paulo, Brazil. The manipulated video was later revealed to have been used in a marketing campaign by Whirlpool’s Brazilian advertising agency. As generative models continue to advance, distinguishing between authentic and fabricated content is becoming increasingly difficult, raising serious concerns about the potential consequences of AI-driven misinformation on individuals’ reputations, careers, and public trust.
 
-The aim of this study is to identify patterns in how AI-generated posts are created, where they appear online, and what types of content they contain. By analyzing these trends, we seek to better equip individuals to navigate the increasingly complex and confusing information landscape shaped by social media and artificial intelligence.
+This study aims to identify patterns in how AI-generated posts are created, where they appear online, and what types of content they contain. By analyzing these trends, we seek to equip individuals better to navigate the increasingly complex and confusing information landscape shaped by social media and artificial intelligence.
 
-To accomplish this goal, we laid out a list of 9 questions which this dataset will allow us to answer:
+To accomplish this goal, we laid out a list of 9 questions that this dataset will allow us to answer:
 
   1. Which social media platform is most prone to AI-generated content?
   
-  2. How long are posts that are typically flagged as AI-generated compared to other model sigantures?
+  2. How long are posts that are typically flagged as AI-generated compared to other model signatures?
   
   3. Does AI-generated content receive different sentiment scores compared to human posts?
   
