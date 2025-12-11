@@ -2,7 +2,7 @@
 title: "Generative AI Misinformation Detection (2024-2025) - Final Report"
 author: "Mahathi Reddy, Maya Manal France, Nayan Menezes"
 date: "December 8, 2025"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -25,7 +25,8 @@ The launch of ChatGPT in November 2022 marked a major shift in how people intera
 
 The dangers of unchecked AI-generated media became especially clear in November 2025, when a deepfake video circulated on social media that altered a 2018 speech by U.S. politician DeAndrea Salvador to make it appear as though she was addressing low-income communities in São Paulo, Brazil. The manipulated video was later revealed to have been used in a marketing campaign by Whirlpool's Brazilian advertising agency. As generative models continue to advance, distinguishing between authentic and fabricated content is becoming increasingly difficult, raising serious concerns about the potential consequences of AI-driven misinformation on individuals' reputations, careers, and public trust.
 
-The aim of this study is to identify patterns in how AI-generated posts are created, where they appear online, and what types of content they contain. By analyzing these trends, we seek to better equip individuals to navigate the increasingly complex and confusing information landscape shaped by social media and artificial intelligence. This data set is a simulation of current news and content ratios as found on Kaggle. 
+The aim of this study is to identify patterns in how AI-generated posts are created, where they appear online, and what types of content they contain. By analyzing these trends, we seek to better equip individuals to navigate the increasingly complex and confusing information landscape shaped by social media and artificial intelligence. This data set is a simulation of current news and content ratios as found on Kaggle. The conclusions reached in this study are purely based
+on the dataset, and are subject to change given other sources of data.
 
 ## Research Questions
 
@@ -153,25 +154,30 @@ summary(summary_vars)
 **Which social media platform is most prone to AI-generated content?**
 
 ```{r q1_analysis}
-# Contingency table
-platform_table <- table(df$platform, df$model_signature == "GPT-like")
-colnames(platform_table) <- c("Human/Unknown", "AI-Generated")
+# Contingency table with all categories kept separate
+platform_table <- table(df$platform, df$model_signature)
 kable(platform_table, caption = "Posts by Platform and Content Type")
 
 # Calculate proportions
 platform_props <- df %>%
+  group_by(platform, model_signature) %>%
+  summarise(Count = n(), .groups = "drop") %>%
   group_by(platform) %>%
-  summarise(
-    Total = n(),
-    AI_Posts = sum(model_signature == "GPT-like"),
-    AI_Percentage = (AI_Posts / Total) * 100
+  mutate(
+    Total = sum(Count),
+    Percentage = (Count / Total) * 100
   )
-kable(platform_props, digits = 1, caption = "AI-Generated Content Rate by Platform")
 
-# Chi-square test
+kable(platform_props, digits = 1, caption = "Content Type Rates by Platform")
+
+# Chi-square test (multinomial across 3 categories)
 chi_test_platform <- chisq.test(platform_table)
-cramers_v_platform <- sqrt(chi_test_platform$statistic / 
-                           (sum(platform_table) * (min(dim(platform_table)) - 1)))
+
+# Cramer's V for multi-row/column contingency
+cramers_v_platform <- sqrt(
+  chi_test_platform$statistic /
+    (sum(platform_table) * (min(dim(platform_table)) - 1))
+)
 
 cat("Chi-square statistic:", round(chi_test_platform$statistic, 4), "\n")
 cat("P-value:", format.pval(chi_test_platform$p.value, digits = 4), "\n")
@@ -180,34 +186,70 @@ cat("Cramér's V:", round(cramers_v_platform, 4), "\n")
 
 ```{r q1_viz, fig.height=6}
 platform_viz <- df %>%
-  mutate(AI_Type = ifelse(model_signature == "GPT-like", "AI-Generated", "Human/Unknown")) %>%
-  group_by(platform, AI_Type) %>%
+  group_by(platform, model_signature) %>%
   summarise(Count = n(), .groups = "drop") %>%
   group_by(platform) %>%
   mutate(Percentage = (Count / sum(Count)) * 100)
 
-ggplot(platform_viz, aes(x = platform, y = Percentage, fill = AI_Type)) +
-  geom_bar(stat = "identity", position = "dodge", alpha = 0.8, width = 0.7) +
-  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
-            position = position_dodge(width = 0.7), vjust = -0.5, size = 3.5) +
-  scale_fill_manual(values = c("Human/Unknown" = "#4CAF50", "AI-Generated" = "#F44336")) +
-  labs(title = "AI-Generated Content by Platform",
-       x = "Platform", y = "Percentage of Posts (%)", fill = "Content Type") +
+ggplot(platform_viz, aes(x = platform, y = Percentage, fill = model_signature)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.85, width = 0.7) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")),
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 3.5) +
+  scale_fill_manual(
+    values = c(
+      "human" = "#4CAF50",
+      "GPT-like" = "#F44336",
+      "unknown" = "#FFD700"
+    )
+  ) +
+  labs(
+    title = "Content Type Distribution by Platform",
+    x = "Platform",
+    y = "Percentage of Posts (%)",
+    fill = "Content Type"
+  ) +
   theme_minimal() +
-  theme(plot.title = element_text(face = "bold"), legend.position = "bottom")
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+```
+
+```{r q1_findings}
+# Which platform is most AI-prone?
+
+platform_props <- df %>%
+  group_by(platform) %>%
+  summarise(
+    Total = n(),
+    AI_Posts = sum(model_signature == "GPT-like"),
+    Percentage = (AI_Posts / Total) * 100,
+    .groups = "drop"
+  )
+
+most_ai <- platform_props %>%
+  arrange(desc(Percentage)) %>%
+  slice(1)
+
+least_ai <- platform_props %>%
+  arrange(Percentage) %>%
+  slice(1)
 ```
 
 **Key Findings:**
 
-- Most AI-prone: **`r platform_props %>% arrange(desc(AI_Percentage)) %>% slice(1) %>% pull(platform)`** (`r round(platform_props %>% arrange(desc(AI_Percentage)) %>% slice(1) %>% pull(AI_Percentage), 1)`%)
-- Least AI-prone: **`r platform_props %>% arrange(AI_Percentage) %>% slice(1) %>% pull(platform)`** (`r round(platform_props %>% arrange(AI_Percentage) %>% slice(1) %>% pull(AI_Percentage), 1)`%)
-- Statistical significance: **`r ifelse(chi_test_platform$p.value < 0.05, "YES", "NO")`** (p = `r round(chi_test_platform$p.value, 4)`)
+- Most AI-prone platform: **`r most_ai$platform`** with **`r round(most_ai$Percentage, 1)`%** GPT-like posts.
+- Least AI-prone platform: **`r least_ai$platform`** with **`r round(least_ai$Percentage, 1)`%** GPT-like posts.
+- Statistical significance: **`r ifelse(chi_test_platform$p.value < 0.05, "YES", "NO")`**  
+  (p = `r round(chi_test_platform$p.value, 4)`)
 
 ---
 
 ## Question 2: Post Length and AI Content
 
-**How long are posts that are typically flagged as AI-generated?**
+**How long are posts that are typically flagged as AI-generated compared to other model signatures?**
 
 ```{r q2_analysis}
 length_summary <- df %>%
@@ -222,8 +264,9 @@ kable(length_summary, digits = 1, caption = "Text Length by Model Signature")
 
 # Statistical test
 ai_lengths <- df %>% filter(model_signature == "GPT-like") %>% pull(text_length)
-human_lengths <- df %>% filter(model_signature != "GPT-like") %>% pull(text_length)
-length_test <- wilcox.test(ai_lengths, human_lengths)
+human_lengths <- df %>% filter(model_signature == "human") %>% pull(text_length)
+unknown_lengths <- df %>% filter(model_signature == "unknown") %>% pull(text_length)
+length_test <- kruskal.test(text_length ~ model_signature, data = df)
 
 cat("Wilcoxon test p-value:", format.pval(length_test$p.value, digits = 4), "\n")
 ```
@@ -241,13 +284,14 @@ ggplot(df, aes(x = model_signature, y = text_length, fill = model_signature)) +
 
 - AI-generated posts: **`r round(mean(ai_lengths), 1)`** characters (mean)
 - Human posts: **`r round(mean(human_lengths), 1)`** characters (mean)
+- Unknown posts: **`r round(mean(unknown_lengths), 1)`** characters (mean)
 - Statistical significance: **`r ifelse(length_test$p.value < 0.05, "YES", "NO")`** (p = `r round(length_test$p.value, 4)`)
 
 ---
 
 ## Question 3: AI Content and Sentiment
 
-**Does AI-generated content have different sentiment scores?**
+**Does AI-generated content receive different sentiment scores compared to human posts?**
 
 ```{r q3_analysis}
 sentiment_summary <- df %>%
@@ -562,16 +606,43 @@ unverified_rate <- misinfo_rates %>% filter(Status == "Unverified") %>% pull(Per
 ```{r summary_table}
 summary_results <- data.frame(
   Question = c(
-    "Q1: Platform susceptibility",
-    "Q2: Post length (AI vs human)",
-    "Q3: Sentiment (AI vs human)",
-    "Q4: AI & misinformation",
-    "Q5: Toxicity levels",
-    "Q6: Country differences",
-    "Q7: Engagement levels",
-    "Q8: Sentiment trends",
-    "Q9: Verified users"
+    "Q1: Which social media platform is most prone to AI-generated content?",
+    "Q2: How long are posts that are typically flagged as AI-generated compared to other model signatures?",
+    "Q3: Does AI-generated content receive different sentiment scores compared to human posts?",
+    "Q4: Are misinformation posts more likely to come from AI-generated content compared to legitimate posts?",
+    "Q5: Do misinformation posts show higher toxicity levels than legitimate posts?",
+    "Q6: Which country contributes the most misinformation content, and how does that compare to legitimate content?",
+    "Q7: How does engagement (likes, shares, interactions) differ between misinformation and legitimate posts?",
+    "Q8: Are certain sentiment trends (negative, neutral, positive) more common in misinformation posts?",
+    "Q9: Do verified users spread misinformation at a higher or lower rate than unverified users?"
   ),
+  Finding = c(
+  as.character(most_ai$platform),
+  as.character(paste0(
+  "AI-generated posts: ", round(mean(ai_lengths), 1), " characters (mean); ",
+  "Human posts: ", round(mean(human_lengths), 1), " characters (mean); ",
+  "Unknown posts: ", round(mean(unknown_lengths), 1), " characters (mean)"
+  )),
+  as.character(paste0(
+    "AI-generated sentiment score mean: ", round(mean(ai_sentiment), 2),
+    "; human sentiment score mean: ", round(mean(human_sentiment), 2)
+  )),
+  as.character(paste0(
+    "AI-generated misinformation rate: ", round(ai_misinfo_rate, 1),
+    "; Non-AI misinformation rate: ", round(non_ai_misinfo_rate, 1)
+  )),
+  as.character(paste0(
+    "Legitimate toxicity mean: ", round(toxicity_summary$Mean[1], 3),
+    "; Misinformation toxicity mean: ", round(toxicity_summary$Mean[2], 3)
+  )),
+  as.character(top_country$country[1]),
+  as.character(paste0(
+    "Legitimate engagement median: ", comma(round(engagement_summary$Median[1], 0)),
+    "; Misinformation engagement median: ", comma(round(engagement_summary$Median[2], 0))
+  )),
+  as.character(top_sentiment_misinfo$sentiment_category[1]),
+  ifelse(round(verified_rate, 1) > round(unverified_rate, 1), "Yes", "No")
+),
   Significant = c(
     ifelse(chi_test_platform$p.value < 0.05, "Yes", "No"),
     ifelse(length_test$p.value < 0.05, "Yes", "No"),
@@ -596,7 +667,5 @@ summary_results <- data.frame(
   )
 )
 
-kable(summary_results, caption = "Summary of All Statistical Tests")
+kable(summary_results, caption = "Summary of All Findings")
 ```
-
-# 5
